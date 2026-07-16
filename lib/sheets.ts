@@ -1,5 +1,5 @@
 import { google } from "googleapis";
-import type { PortalData, Project, Task, Invoice, TeamMember, TimelineItem } from "./types";
+import type { PortalData, Project, Task, Invoice, TeamMember, TimelineItem, Achievement } from "./types";
 
 const SHEET_ID = process.env.GOOGLE_SHEET_ID as string;
 
@@ -71,6 +71,7 @@ const COLS = {
   Invoices: ["id", "project_id", "label", "amount", "currency", "due_date", "status"],
   Team: ["id", "name", "role"],
   Timeline: ["id", "project_id", "label", "start_date", "end_date"],
+  Achievements: ["id", "project_id", "slot", "member"],
 };
 
 function colLetterFor(tab: keyof typeof COLS, field: string): string {
@@ -93,12 +94,13 @@ function nextId(rows: { data: Record<string, string> }[], prefix: string): strin
 }
 
 export async function getAllData(): Promise<PortalData> {
-  const [projRows, taskRows, invRows, teamRows, tlRows] = await Promise.all([
+  const [projRows, taskRows, invRows, teamRows, tlRows, achRows] = await Promise.all([
     readTab("Projects"),
     readTab("Tasks"),
     readTab("Invoices"),
     readTab("Team"),
     readTab("Timeline"),
+    readTab("Achievements"),
   ]);
 
   const projects: Project[] = projRows.map((r) => ({
@@ -149,7 +151,14 @@ export async function getAllData(): Promise<PortalData> {
     end_date: r.data.end_date,
   }));
 
-  return { projects, tasks, invoices, team, timeline };
+  const achievements: Achievement[] = achRows.map((r) => ({
+    id: r.data.id,
+    project_id: r.data.project_id,
+    slot: Number(r.data.slot) || 0,
+    member: r.data.member || "",
+  }));
+
+  return { projects, tasks, invoices, team, timeline, achievements };
 }
 
 // ---- Task write operations ----
@@ -273,7 +282,19 @@ export async function findProjectByName(query: string): Promise<{ id: string; na
 
 // ---- Invoice forecasting (pure calculation, no sheet writes) ----
 
-// Standard studio payment schedule: 50% down payment, then 30% at milestone, then 20% final.
+// Sets (or clears, if member === "") which team member gets credit for one of
+// a project's up to 5 achievement slots. Creates a new row the first time a
+// given project+slot is used, updates it after that.
+export async function setAchievement(projectId: string, slot: number, member: string): Promise<void> {
+  const rows = await readTab("Achievements");
+  const existing = rows.find((r) => r.data.project_id === projectId && Number(r.data.slot) === slot);
+  if (existing) {
+    await updateCell("Achievements", existing.rowNumber, colLetterFor("Achievements", "member"), member);
+  } else {
+    const id = nextId(rows, "ach");
+    await appendRow("Achievements", [id, projectId, String(slot), member]);
+  }
+}
 const PAYMENT_TIERS = [
   { threshold: 0.5, label: "50% Deposit" },
   { threshold: 0.8, label: "30% Milestone" },

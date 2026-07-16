@@ -8,6 +8,7 @@ const TABS = [
   { href: "/dashboard/todo", label: "TO-DO" },
   { href: "/dashboard/studio", label: "STUDIO" },
   { href: "/dashboard/team", label: "TEAM" },
+  { href: "/dashboard/achievements", label: "ACHIEVEMENTS" },
 ];
 
 export default function NavTabs() {

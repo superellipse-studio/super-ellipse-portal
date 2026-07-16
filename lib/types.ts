@@ -46,10 +46,18 @@ export interface TimelineItem {
   end_date: string;
 }
 
+export interface Achievement {
+  id: string;
+  project_id: string;
+  slot: number;
+  member: string;
+}
+
 export interface PortalData {
   projects: Project[];
   tasks: Task[];
   invoices: Invoice[];
   team: TeamMember[];
   timeline: TimelineItem[];
+  achievements: Achievement[];
 }
