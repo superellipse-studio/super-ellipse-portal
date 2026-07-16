@@ -80,7 +80,7 @@ const COLS = {
   Invoices: ["id", "project_id", "label", "amount", "currency", "due_date", "status"],
   Team: ["id", "name", "role"],
   Timeline: ["id", "project_id", "label", "start_date", "end_date"],
-  Achievements: ["id", "project_id", "slot", "member"],
+  Achievements: ["id", "project_id", "slot", "member", "paid"],
 };
 
 function colLetterFor(tab: keyof typeof COLS, field: string): string {
@@ -165,6 +165,7 @@ export async function getAllData(): Promise<PortalData> {
     project_id: r.data.project_id,
     slot: Number(r.data.slot) || 0,
     member: r.data.member || "",
+    paid: r.data.paid === "true",
   }));
 
   return { projects, tasks, invoices, team, timeline, achievements };
@@ -292,16 +293,22 @@ export async function findProjectByName(query: string): Promise<{ id: string; na
 // ---- Invoice forecasting (pure calculation, no sheet writes) ----
 
 // Sets (or clears, if member === "") which team member gets credit for one of
-// a project's up to 5 achievement slots. Creates a new row the first time a
-// given project+slot is used, updates it after that.
-export async function setAchievement(projectId: string, slot: number, member: string): Promise<void> {
+// a project's up to 5 achievement slots, and whether their bonus has been paid.
+// Creates a new row the first time a given project+slot is used, updates it after that.
+export async function setAchievement(
+  projectId: string,
+  slot: number,
+  member: string,
+  paid: boolean
+): Promise<void> {
   const rows = await readTab("Achievements");
   const existing = rows.find((r) => r.data.project_id === projectId && Number(r.data.slot) === slot);
   if (existing) {
     await updateCell("Achievements", existing.rowNumber, colLetterFor("Achievements", "member"), member);
+    await updateCell("Achievements", existing.rowNumber, colLetterFor("Achievements", "paid"), String(paid));
   } else {
     const id = nextId(rows, "ach");
-    await appendRow("Achievements", [id, projectId, String(slot), member]);
+    await appendRow("Achievements", [id, projectId, String(slot), member, String(paid)]);
   }
 }
 const PAYMENT_TIERS = [

@@ -51,6 +51,7 @@ export interface Achievement {
   project_id: string;
   slot: number;
   member: string;
+  paid: boolean;
 }
 
 export interface PortalData {
